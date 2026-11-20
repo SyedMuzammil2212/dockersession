@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: todo_app
+      POSTGRES_USER: todo_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-supersecretpassword}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_app -d todo_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Task requirement: Explicitly set to service name and port
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: todo_app
+      DB_USERNAME: todo_app
+      DB_PASSWORD: ${DB_PASSWORD:-supersecretpassword}
+      # CRITICAL: Override 127.0.0.1 so Spring listens on all container interfaces
+      SERVER_ADDRESS: "0.0.0.0"
+      SERVER_PORT: "8080"
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  db-data:

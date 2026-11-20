@@ -1,44 +1,50 @@
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ${DB_NAME:-todo_app}
-      POSTGRES_USER: ${DB_USERNAME:-todo_app}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-todo_app_password}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    # Uncomment to reach the database from your host at localhost:5433
-    # ports:
-    #   - "5433:5432"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: todo-backend
+    ports:
+      - "8081:8080"
     environment:
-      # Inside Compose, the database is reached by its service name, not localhost
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-todo_app}
-      DB_USERNAME: ${DB_USERNAME:-todo_app}
-      DB_PASSWORD: ${DB_PASSWORD:-todo_app_password}
-      # The app binds to 127.0.0.1 by default, which other containers cannot reach
-      SERVER_ADDRESS: 0.0.0.0
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/todo_app
+      SPRING_DATASOURCE_USERNAME: todo_app
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-todo_password}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+    restart: unless-stopped
 
-  frontend:
-    build: ./frontend
-    depends_on:
-      - backend
+  db:
+    image: postgres:17-alpine
+    container_name: todo-postgres
+    environment:
+      POSTGRES_DB: todo_app
+      POSTGRES_USER: todo_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-todo_password}
     ports:
-      - "3000:80"
+      - "5433:5432"
+    volumes:
+      - todo_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_app -d todo_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
-  pgdata:
+  todo_data:

@@ -13,7 +13,7 @@ type Todo = {
 type Filter = 'all' | 'active' | 'completed'
 
 async function api<T>(path = '', options?: RequestInit): Promise<T> {
-  const response = await fetch(`http://localhost:8080/api/todos${path}`, {
+  const response = await fetch(`/api/todos${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...options?.headers },
   })

@@ -8,5 +8,9 @@ export default defineConfig({
     host: 'localhost',
     port: 5173,
     strictPort: true,
+    // In dev, forward /api to the local backend (in Docker, nginx does this)
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
   },
 })

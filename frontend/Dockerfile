@@ -1,22 +1,27 @@
-
 FROM node:22-alpine AS build
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 RUN npm ci
 
 COPY . .
-
 RUN npm run build
 
-FROM nginx:alpine
+WORKDIR /server
+RUN npm install serve
 
-COPY --from=build /app/dist /usr/share/nginx/html
+FROM gcr.io/distroless/nodejs22-debian12:nonroot
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-EXPOSE 80
+ENV NO_UPDATE_CHECK=1
 
-CMD ["nginx", "-g", "daemon off;"]
+COPY --from=build /app/dist ./dist
+COPY --from=build /server/node_modules ./node_modules
+
+
+EXPOSE 3000
+
+CMD ["node_modules/serve/build/main.js", "-s", "dist", "-l", "3000", "--no-clipboard"]

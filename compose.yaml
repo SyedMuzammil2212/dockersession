@@ -1,47 +1,60 @@
-
 services:
-
-  frontend:
-    build: ./frontend
-    container_name: todo-frontend
+  db:
+    image: postgres:16-alpine
+    container_name: todo-db
+    environment:
+      POSTGRES_DB: todo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
-      - "5173:80"
-    depends_on:
-      - backend
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d todo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: todo-backend
     ports:
       - "8080:8080"
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: todo_app
-      DB_USERNAME: todo_app
-      DB_PASSWORD: ismail@7012
       SERVER_ADDRESS: 0.0.0.0
-      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/todo
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
 
-  db:
-    image: postgres:17-alpine
-    container_name: todo-db
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todo-frontend
     ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: todo_app
-      POSTGRES_USER: todo_app
-      POSTGRES_PASSWORD: ismail@7012
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: todo-nginx
+    ports:
+      - "8081:80"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U todo_app -d todo_app"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
+  pgdata:

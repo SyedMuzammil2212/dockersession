@@ -1,0 +1,83 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: todo_app
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: todo_db
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres-data-new:/var/lib/postgresql/data
+
+    networks:
+      - three-tier
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_app -d todo_db"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+
+
+  frontend-app:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: frontend-app
+    restart: unless-stopped
+
+    ports:
+      - "5173:80"
+
+    networks:
+      - three-tier
+
+    depends_on:
+      - backend-app
+
+
+  backend-app:
+    build:
+      context: ./backend
+      dockerfile: Docker-multi-stage
+
+    container_name: backend-app
+    restart: unless-stopped
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: todo_db
+      DB_USERNAME: todo_app
+      DB_PASSWORD: admin
+      SERVER_PORT: 8080
+      SERVER_ADDRESS: 0.0.0.0
+
+    ports:
+      - "8080:8080"
+
+    networks:
+      - three-tier
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
+volumes:
+  postgres-data-new:
+
+
+networks:
+  three-tier:
+    external: true
+    name: three-tier
